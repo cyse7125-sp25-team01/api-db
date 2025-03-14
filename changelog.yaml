@@ -1,26 +1,275 @@
 databaseChangeLog:
+  - preConditions:
+      - runningAs:
+          username: postgres
+
+  # First create schema in public namespace without specifying schemaName
+  - changeSet:
+      id: 0
+      author: postgres
+      changes:
+        - sql:
+            sql: CREATE SCHEMA IF NOT EXISTS api;
+
   - changeSet:
       id: 1
       author: postgres
       changes:
-        - sql:
-            sql: "CREATE SCHEMA IF NOT EXISTS webapp;"
-
-        - sql:
-            sql: "SET search_path TO webapp;"
-
         - createTable:
-            tableName: healthcheck
-            schemaName: webapp
+            schemaName: api
+            tableName: users
             columns:
               - column:
                   name: id
                   type: SERIAL
                   constraints:
                     primaryKey: true
+                    unique: true
               - column:
-                  name: timestamp
-                  type: TIMESTAMP
+                  name: first_name
+                  type: VARCHAR(100)
                   constraints:
                     nullable: false
-                    defaultValueComputed: CURRENT_TIMESTAMP
+              - column:
+                  name: last_name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: username
+                  type: VARCHAR(255)
+                  constraints:
+                    unique: true
+                    nullable: false
+              - column:
+                  name: password
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: account_created
+                  type: TIMESTAMP
+                  defaultValueComputed: NOW()
+              - column:
+                  name: account_updated
+                  type: TIMESTAMP
+                  defaultValueComputed: NOW()
+
+  # Rest of your changesets remain the same
+  - changeSet:
+      id: 2
+      author: postgres
+      changes:
+        - createTable:
+            schemaName: api
+            tableName: instructors
+            columns:
+              - column:
+                  name: instructor_id
+                  type: SERIAL
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: user_id
+                  type: INTEGER
+                  constraints:
+                    foreignKeyName: fk_instructors_user
+                    references: api.users(id)
+                    nullable: false
+                    onDelete: CASCADE
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    unique: true
+                    nullable: false
+              - column:
+                  name: date_created
+                  type: TIMESTAMP
+                  defaultValueComputed: NOW()
+
+  - changeSet:
+      id: 3
+      author: postgres
+      changes:
+        - createTable:
+            schemaName: api
+            tableName: courses
+            columns:
+              - column:
+                  name: course_id
+                  type: SERIAL
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: owner_user_id
+                  type: INTEGER
+                  constraints:
+                    foreignKeyName: fk_courses_user
+                    references: api.users(id)
+                    nullable: false
+                    onDelete: CASCADE
+              - column:
+                  name: instructor_id
+                  type: INTEGER
+                  constraints:
+                    foreignKeyName: fk_courses_instructor
+                    references: api.instructors(instructor_id)
+                    nullable: false
+                    onDelete: CASCADE
+              - column:
+                  name: code
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: semester_term
+                  type: VARCHAR(50)
+              - column:
+                  name: credit_hours
+                  type: INTEGER
+              - column:
+                  name: semester_year
+                  type: INTEGER
+              - column:
+                  name: manufacturer
+                  type: VARCHAR(255)
+              - column:
+                  name: date_added
+                  type: TIMESTAMP
+                  defaultValueComputed: NOW()
+              - column:
+                  name: date_last_updated
+                  type: TIMESTAMP
+                  defaultValueComputed: NOW()
+
+  - changeSet:
+      id: 4
+      author: postgres
+      changes:
+        - createTable:
+            schemaName: api
+            tableName: traces
+            columns:
+              - column:
+                  name: trace_id
+                  type: SERIAL
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: course_id
+                  type: INTEGER
+                  constraints:
+                    foreignKeyName: fk_traces_course
+                    references: api.courses(course_id)
+                    nullable: false
+                    onDelete: CASCADE
+              - column:
+                  name: user_id
+                  type: INTEGER
+                  constraints:
+                    foreignKeyName: fk_traces_user
+                    references: api.users(id)
+                    nullable: false
+                    onDelete: CASCADE
+              - column:
+                  name: file_name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: bucket_path
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: date_created
+                  type: TIMESTAMP
+                  defaultValueComputed: NOW()
+  - changeSet:
+      id: 5
+      author: postgres
+      changes:
+        # Drop the existing constraint first
+        - dropForeignKeyConstraint:
+            baseTableSchemaName: api
+            baseTableName: instructors
+            constraintName: fk_instructors_user
+        # Re-add it with explicit CASCADE behavior
+        - addForeignKeyConstraint:
+            constraintName: fk_instructors_user
+            baseTableSchemaName: api
+            baseTableName: instructors
+            baseColumnNames: user_id
+            referencedTableSchemaName: api
+            referencedTableName: users
+            referencedColumnNames: id
+            onDelete: CASCADE
+
+        # Similarly for the other foreign keys
+        - dropForeignKeyConstraint:
+            baseTableSchemaName: api
+            baseTableName: courses
+            constraintName: fk_courses_user
+        - addForeignKeyConstraint:
+            constraintName: fk_courses_user
+            baseTableSchemaName: api
+            baseTableName: courses
+            baseColumnNames: owner_user_id
+            referencedTableSchemaName: api
+            referencedTableName: users
+            referencedColumnNames: id
+            onDelete: CASCADE
+
+        - dropForeignKeyConstraint:
+            baseTableSchemaName: api
+            baseTableName: courses
+            constraintName: fk_courses_instructor
+        - addForeignKeyConstraint:
+            constraintName: fk_courses_instructor
+            baseTableSchemaName: api
+            baseTableName: courses
+            baseColumnNames: instructor_id
+            referencedTableSchemaName: api
+            referencedTableName: instructors
+            referencedColumnNames: instructor_id
+            onDelete: CASCADE
+
+        - dropForeignKeyConstraint:
+            baseTableSchemaName: api
+            baseTableName: traces
+            constraintName: fk_traces_course
+        - addForeignKeyConstraint:
+            constraintName: fk_traces_course
+            baseTableSchemaName: api
+            baseTableName: traces
+            baseColumnNames: course_id
+            referencedTableSchemaName: api
+            referencedTableName: courses
+            referencedColumnNames: course_id
+            onDelete: CASCADE
+
+        - dropForeignKeyConstraint:
+            baseTableSchemaName: api
+            baseTableName: traces
+            constraintName: fk_traces_user
+        - addForeignKeyConstraint:
+            constraintName: fk_traces_user
+            baseTableSchemaName: api
+            baseTableName: traces
+            baseColumnNames: user_id
+            referencedTableSchemaName: api
+            referencedTableName: users
+            referencedColumnNames: id
+            onDelete: CASCADE
