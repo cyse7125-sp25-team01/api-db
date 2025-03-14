@@ -1,4 +1,4 @@
-# Liquibase Docker Image
+# Liquibase Docker Image Repo
 
 This repository contains a Dockerized Liquibase image.
 
